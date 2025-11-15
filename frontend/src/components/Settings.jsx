@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Settings as SettingsIcon, Save, RefreshCw } from 'lucide-react'
+import { API_BASE } from '../config'
 import './Settings.css'
-
-const API_BASE = '/api'
 
 export default function Settings() {
   const [whitelist, setWhitelist] = useState(null)

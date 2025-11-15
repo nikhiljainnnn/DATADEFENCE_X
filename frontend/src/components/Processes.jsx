@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Shield, Search, RefreshCw, AlertTriangle, Play, Pause, X, WifiOff } from 'lucide-react'
+import { API_BASE } from '../config'
 import './Processes.css'
-
-const API_BASE = '/api'
 
 export default function Processes() {
   const [processes, setProcesses] = useState([])

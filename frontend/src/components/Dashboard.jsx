@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Activity, Shield, AlertTriangle, Zap, TrendingUp, Clock } from 'lucide-react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { API_BASE } from '../config'
 import './Dashboard.css'
-
-const API_BASE = '/api'
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)

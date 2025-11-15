@@ -26,10 +26,45 @@ import psutil
 
 app = FastAPI(title="DataDefenceX API", version="1.0.0")
 
-# CORS middleware
+# CORS middleware - Allow localhost, Vercel, and ngrok domains
+
+def get_allowed_origins() -> List[str]:
+    """Get allowed CORS origins from environment or use defaults"""
+    origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+    
+    # Add Vercel domain if provided
+    vercel_url = os.getenv("VERCEL_URL")
+    if vercel_url:
+        origins.append(f"https://{vercel_url}")
+    
+    # Add custom frontend URL if provided
+    frontend_url = os.getenv("FRONTEND_URL")
+    if frontend_url:
+        origins.append(frontend_url)
+        # Also add without protocol if needed
+        if not frontend_url.startswith("http"):
+            origins.append(f"https://{frontend_url}")
+            origins.append(f"http://{frontend_url}")
+    
+    # Add ngrok pattern (common ngrok domains)
+    # Note: For production, you should specify exact ngrok URL via environment variable
+    ngrok_url = os.getenv("NGROK_URL")
+    if ngrok_url:
+        origins.append(ngrok_url)
+        # Also add with /api if not present
+        if not ngrok_url.endswith("/api"):
+            origins.append(f"{ngrok_url}/api")
+    
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

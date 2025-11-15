@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { AlertTriangle, Search, Filter, X } from 'lucide-react'
+import { API_BASE } from '../config'
 import './Detections.css'
-
-const API_BASE = '/api'
 
 export default function Detections() {
   const [detections, setDetections] = useState([])
