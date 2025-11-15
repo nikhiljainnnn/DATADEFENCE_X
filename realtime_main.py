@@ -369,7 +369,9 @@ class RealtimeDetectionSystem:
                         cmdline_check = proc.info.get('cmdline', [])
                         cmdline_str_check = ' '.join(cmdline_check) if cmdline_check else ''
                         # Only re-analyze if it has suspicious patterns we haven't seen
-                        if '-encodedcommand' in cmdline_str_check.lower() or '-enc' in cmdline_str_check.lower():
+                        cmdline_lower_check = cmdline_str_check.lower()
+                        suspicious_patterns = ['-encodedcommand', '-enc', 'encodedcommand', '-windowstyle', 'hidden', 'bypass', '-executionpolicy']
+                        if any(pattern in cmdline_lower_check for pattern in suspicious_patterns):
                             # This is suspicious - analyze it even if we've seen the PID
                             should_analyze = True
                         elif pid not in analyzed_pids:
@@ -407,8 +409,12 @@ class RealtimeDetectionSystem:
                                 self.stats['false_positives_avoided'] += 1
                                 continue
                         
-                        # For PowerShell, don't skip due to rate limiting if it has encoded commands
-                        if is_powershell and ('-encodedcommand' in cmdline.lower() or '-enc' in cmdline.lower()):
+                        # For PowerShell, don't skip due to rate limiting if it has suspicious patterns
+                        cmdline_lower = cmdline.lower()
+                        suspicious_powershell_patterns = ['-encodedcommand', '-enc', 'encodedcommand', '-windowstyle', 'hidden', 'bypass', '-executionpolicy']
+                        is_suspicious_powershell = is_powershell and any(pattern in cmdline_lower for pattern in suspicious_powershell_patterns)
+                        
+                        if is_suspicious_powershell:
                             # Bypass rate limiting for suspicious PowerShell
                             pass
                         elif not self._should_scan_process(pid):

@@ -120,8 +120,25 @@ async def startup_event():
         original_print = detection_system._print_detection
         def hooked_print_detection(event_data, result, adjusted_score):
             original_print(event_data, result, adjusted_score)
+            # Add to detection history
             add_detection(event_data, result, adjusted_score)
         detection_system._print_detection = hooked_print_detection
+        
+        # Also hook into the action thread to catch detections that go through action engine
+        original_handle = detection_system._handle_detection
+        def hooked_handle_detection(detection):
+            original_handle(detection)
+            # Extract detection info and add to history
+            try:
+                event_data = detection.get('event', {})
+                result = detection.get('result')
+                adjusted_score = detection.get('adjusted_score', 0)
+                if result and event_data:
+                    add_detection(event_data, result, adjusted_score)
+            except Exception as e:
+                print(f"[!] Error in handle_detection hook: {e}")
+        detection_system._handle_detection = hooked_handle_detection
+        
         print("[*] Detection system initialized (not started)")
     except Exception as e:
         print(f"[!] Error initializing detection system: {e}")
@@ -521,18 +538,32 @@ def add_detection(event_data: Dict, result, adjusted_score: float):
         if event_data.get('type') == 'process':
             proc = event_data.get('event')
             if proc and hasattr(proc, 'pid'):
+                # Get cmdline - try multiple attributes
+                cmdline = ''
+                if hasattr(proc, 'cmdline'):
+                    cmdline = proc.cmdline or ''
+                elif hasattr(proc, 'command_line'):
+                    cmdline = proc.command_line or ''
+                
+                # Convert to string if needed
+                if isinstance(cmdline, list):
+                    cmdline = ' '.join(cmdline)
+                cmdline = str(cmdline)[:500]  # Limit length but keep more than before
+                
                 detection = {
                     "pid": proc.pid,
                     "name": getattr(proc, 'name', 'Unknown'),
-                    "path": getattr(proc, 'exe_path', ''),
-                    "cmdline": (getattr(proc, 'cmdline', '') or '')[:200],
+                    "path": getattr(proc, 'exe_path', '') or getattr(proc, 'path', ''),
+                    "cmdline": cmdline,
                     "threat_score": float(adjusted_score),
                     "confidence": float(getattr(result, 'confidence', 0) * 100),
                     "threat_level": get_threat_level(adjusted_score),
-                    "indicators": getattr(result, 'contributing_features', [])[:5],
+                    "indicators": getattr(result, 'contributing_features', [])[:10],  # Show more indicators
                     "timestamp": datetime.now().isoformat()
                 }
+                print(f"[API] Added detection to history: PID={proc.pid}, Score={adjusted_score}, Name={detection['name']}, CmdLine={cmdline[:100]}")
             else:
+                print(f"[API] Warning: Process event missing PID or invalid: {proc}")
                 return
         else:
             detection = {
@@ -548,6 +579,7 @@ def add_detection(event_data: Dict, result, adjusted_score: float):
             }
         
         detection_history.append(detection)
+        print(f"[API] Detection history now has {len(detection_history)} entries")
         
         # Keep only last 1000 detections
         if len(detection_history) > 1000:
@@ -566,10 +598,12 @@ def add_detection(event_data: Dict, result, adjusted_score: float):
                     "type": "detection",
                     "data": detection
                 }))
-        except:
-            pass  # WebSocket broadcast failed, continue
+        except Exception as ws_error:
+            print(f"[API] WebSocket broadcast error (non-critical): {ws_error}")
     except Exception as e:
         print(f"[!] Error adding detection to history: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     import uvicorn

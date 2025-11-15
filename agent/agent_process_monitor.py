@@ -288,7 +288,9 @@ class ProcessMonitorAgent:
                 cmdline_lower = cmdline_str.lower()
                 
                 # CRITICAL: Encoded commands (highest priority)
-                if any(flag in cmdline_lower for flag in ['-encodedcommand', '-enc ', 'encodedcommand', ' -enc']):
+                # Check for -EncodedCommand, -enc, or EncodedCommand (case-insensitive)
+                encoded_flags = ['-encodedcommand', '-enc ', 'encodedcommand', ' -enc', '-encodedcommand=', '-enc=']
+                if any(flag in cmdline_lower for flag in encoded_flags):
                     score += 90  # Very high score for encoded commands
                     indicators.append("PowerShell with encoded command detected (CRITICAL)")
                     # Also check if there's actual base64 data after the flag
@@ -299,10 +301,18 @@ class ProcessMonitorAgent:
                         indicators.append("Contains Base64-encoded payload")
                 
                 # HIGH: Hidden window + Bypass execution policy (common attack pattern)
-                elif ('-windowstyle' in cmdline_lower and 'hidden' in cmdline_lower) and \
-                     ('-executionpolicy' in cmdline_lower and 'bypass' in cmdline_lower):
+                has_hidden = '-windowstyle' in cmdline_lower and 'hidden' in cmdline_lower
+                has_bypass = '-executionpolicy' in cmdline_lower and 'bypass' in cmdline_lower
+                if has_hidden and has_bypass:
                     score += 75  # High score for hidden + bypass combo
                     indicators.append("PowerShell with hidden window and execution policy bypass")
+                elif has_hidden or has_bypass:
+                    # Single suspicious parameter - still flag it
+                    score += 50
+                    if has_hidden:
+                        indicators.append("PowerShell with hidden window")
+                    if has_bypass:
+                        indicators.append("PowerShell with execution policy bypass")
                 
                 # HIGH: Download + Execute patterns
                 elif any(dl_pattern in cmdline_lower for dl_pattern in ['downloadstring', 'downloadfile', 'invoke-webrequest', 'iwr', 'curl', 'wget']) and \
